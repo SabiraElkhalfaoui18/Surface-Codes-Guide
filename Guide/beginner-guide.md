@@ -2,46 +2,162 @@
 
 ## 1. What problem do surface codes solve?
 
-Quantum computers are very sensitive to noise. Physical qubits can suffer from bit-flip errors, phase-flip errors, measurement errors, and gate errors.
+Quantum computers are very sensitive to noise. Physical qubits can suffer from:
+
+* Bit-flip errors
+* Phase-flip errors
+* Combined bit-and-phase-flip errors
+* Measurement errors
+* Gate errors
 
 A surface code protects quantum information by encoding one logical qubit into many physical qubits.
 
+The goal is to detect and correct errors before they corrupt the logical information.
+
+---
+
 ## 2. Physical qubits vs logical qubits
 
-A physical qubit is a real noisy qubit.
+A physical qubit is a real qubit implemented in hardware.
+
+Examples:
+
+* Superconducting qubits
+* Trapped ions
+* Neutral atoms
+
+Physical qubits are noisy and error-prone.
 
 A logical qubit is an error-protected qubit built from many physical qubits.
 
-The purpose of quantum error correction is to keep the logical qubit correct even when some physical qubits fail.
+The purpose of quantum error correction is to preserve the logical qubit even when some physical qubits fail.
 
-## 3. What is a stabilizer?
+```text
+Logical Qubit
+      ↓
+Encoded into
+      ↓
+Many Physical Qubits
+```
 
-A stabilizer is a measurement used to check whether an error has happened.
+---
+
+## 3. The Three Pauli Errors
+
+Surface codes are designed to detect and correct Pauli errors.
+
+### X Error (Bit Flip)
+
+Changes:
+
+```text
+|0⟩ → |1⟩
+|1⟩ → |0⟩
+```
+
+### Z Error (Phase Flip)
+
+Changes the phase:
+
+```text
+|+⟩ → |−⟩
+```
+
+without changing the computational basis measurement result.
+
+### Y Error
+
+A Y error is a combination of X and Z:
+
+```text
+Y = iXZ
+```
+
+Therefore:
+
+```text
+Y error = X error + Z error
+```
+
+Surface codes do not usually decode Y errors separately. Instead, the decoder handles the X and Z components independently.
+
+---
+
+## 4. What is a stabilizer?
+
+A stabilizer is a measurement used to detect errors without measuring the logical quantum information directly.
 
 Surface codes use two main types of stabilizers:
 
-* X stabilizers detect Z-type errors
-* Z stabilizers detect X-type errors
+### X Stabilizers
 
-The results of stabilizer measurements are called syndromes.
+Detect Z-type errors.
 
-## 4. What is code distance?
+### Z Stabilizers
 
-The code distance, usually written as `d`, measures how many physical errors are needed to cause a logical error.
+Detect X-type errors.
 
-Larger distance means better protection, but it requires more qubits.
-
-For example:
+The outcomes of stabilizer measurements are called syndromes.
 
 ```text
-d = 3  small code, less protection
-d = 5  medium code, better protection
-d = 7  larger code, even better protection
+X stabilizer  → detects Z errors
+
+Z stabilizer  → detects X errors
 ```
 
-## 5. What does Stim do?
+A Y error activates both types of stabilizers because it contains both X and Z components.
 
-Stim is a fast stabilizer-circuit simulator. It can generate surface-code circuits, add noise, and sample measurement results.
+---
+
+## 5. What is a syndrome?
+
+A syndrome is the result of a stabilizer measurement.
+
+A syndrome does not tell us exactly which qubit experienced an error.
+
+Instead, it indicates where inconsistencies appear in the code.
+
+```text
+Error occurs
+      ↓
+Stabilizer changes
+      ↓
+Syndrome appears
+      ↓
+Decoder infers correction
+```
+
+---
+
+## 6. What is code distance?
+
+The code distance, usually written as `d`, measures how many physical errors are needed to create a logical error.
+
+Larger distance means stronger protection but requires more physical qubits.
+
+Examples:
+
+```text
+d = 3  small code
+d = 5  medium code
+d = 7  larger code
+```
+
+A larger code distance generally leads to a lower logical error rate.
+
+---
+
+## 7. What does Stim do?
+
+Stim is a fast stabilizer-circuit simulator.
+
+It can:
+
+* Generate surface-code circuits
+* Add realistic noise
+* Simulate stabilizer measurements
+* Generate detector events
+* Produce detector error models
 
 Example:
 
@@ -49,48 +165,117 @@ Example:
 import stim
 
 circuit = stim.Circuit.generated(
-    "surface_code:rotated_memory_Z",
+    "surface_code:rotated_memory_z",
     distance=3,
     rounds=3,
     after_clifford_depolarization=0.001,
 )
 ```
 
-## 6. What does a decoder do?
+---
 
-The decoder receives syndrome data and guesses which errors happened.
+## 8. What are detector events?
+
+Detector events are changes in syndrome measurements.
+
+Instead of tracking every physical qubit directly, Stim tracks detector events.
+
+```text
+Physical Error
+      ↓
+Syndrome Change
+      ↓
+Detector Event
+```
+
+These detector events are what the decoder actually receives.
+
+---
+
+## 9. What does a decoder do?
+
+The decoder receives detector events and tries to determine the most likely error pattern.
 
 In this project, PyMatching is used as the decoder.
 
 The workflow is:
 
 ```text
-Surface-code circuit
+Surface-Code Circuit
         ↓
-Noise creates errors
+Noise Creates Errors
         ↓
-Stabilizers detect changes
+Stabilizers Detect Changes
         ↓
-Decoder predicts correction
+Detector Events
         ↓
-Check whether logical error happened
+PyMatching Decoder
+        ↓
+Correction Prediction
+        ↓
+Check Logical Failure
 ```
 
-## 7. What is logical error rate?
+---
 
-The logical error rate is the probability that the encoded logical qubit fails.
+## 10. What is logical error rate?
 
-A successful surface code should show lower logical error rate when the distance increases, especially below the error threshold.
+The logical error rate is the probability that the encoded logical qubit fails after decoding.
 
-## 8. Suggested first experiment
+It is the most important performance metric in quantum error correction.
 
-Run the same simulation for:
+A successful surface code should show:
+
+```text
+Higher distance
+        ↓
+Lower logical error rate
+```
+
+especially when the physical error rate is below the threshold.
+
+---
+
+## 11. Suggested First Experiment
+
+Run the simulation for:
 
 ```python
 distances = [3, 5, 7]
-noise_rates = [0.001, 0.003, 0.005]
+
+noise_rates = [
+    0.001,
+    0.003,
+    0.005,
+]
 ```
 
-Then compare the logical error rates.
+Compare the logical error rates.
 
-If the code works well, larger distances should usually give lower logical error rates at low physical noise.
+Expected behavior:
+
+```text
+Distance increases
+        ↓
+Logical error rate decreases
+```
+
+This demonstrates the fundamental principle of quantum error correction.
+
+---
+
+## 12. Key Concepts to Remember
+
+Before studying advanced surface codes, make sure you understand:
+
+* Physical qubits
+* Logical qubits
+* Pauli X, Y, Z errors
+* Stabilizers
+* Syndromes
+* Detector events
+* Code distance
+* Decoding
+* Logical error rate
+
+These concepts form the foundation of modern fault-tolerant quantum computing.
